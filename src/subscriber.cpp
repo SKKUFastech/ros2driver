@@ -1,6 +1,7 @@
 // Include ROS2 C++ dependencies
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
+#include <ros2driver/msg/servoenable42.hpp>
 //
 #include <stdlib.h>
 #include <string.h>

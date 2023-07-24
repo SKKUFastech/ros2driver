@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(udpcmd)
+project(ros2driver)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
 #######################this is added###################################
 
@@ -19,7 +20,14 @@ ament_target_dependencies(ros_to_driver rclcpp geometry_msgs)
 # Install the executable to the "lib/<package_name>" directory
 install(TARGETS
   ros_to_driver
+  # subscriber
   DESTINATION lib/${PROJECT_NAME})
+
+find_package(rosidl_default_generators REQUIRED)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "msg/Servoenable42.msg"
+)
 
 ##########################################################################
 
