@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(ros2driver REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
@@ -17,10 +18,14 @@ find_package(std_msgs REQUIRED)
 add_executable(ros_to_driver src/ros_to_driver.cpp)
 ament_target_dependencies(ros_to_driver rclcpp geometry_msgs)
 
+# Add the ServoEnable node executable
+add_executable(subscriber_set_node src/subscriber.cpp)
+ament_target_dependencies(subscriber_set_node rclcpp geometry_msgs ros2driver)    # CHANGE
+
 # Install the executable to the "lib/<package_name>" directory
 install(TARGETS
   ros_to_driver
-  # subscriber
+  subscriber_set_node
   DESTINATION lib/${PROJECT_NAME})
 
 find_package(rosidl_default_generators REQUIRED)

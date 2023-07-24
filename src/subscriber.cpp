@@ -44,6 +44,56 @@ void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
     printf("Server: %s\n", buffer);
 }
 
+void ServoEnable_cb(const ros2driver::msg::Servoenable42 &msg)
+{
+    int power = msg.power;
+    RCLCPP_INFO(rclcpp::get_logger("ServoEnable_sub"), "Power: %d", msg.power);
+    char buffer[258];
+
+    if (power == 0){
+        buffer[0] = 0xAA;
+        buffer[1] = 0x04;
+        buffer[2] = 0x38;
+        buffer[3] = 0x00;
+        buffer[4] = 0x2A;
+        buffer[5] = 0x00;
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 6, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("OFF\n");
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
+    else if (power == 1){
+        buffer[0] = 0xAA;
+        buffer[1] = 0x04;
+        buffer[2] = 0x38;
+        buffer[3] = 0x00;
+        buffer[4] = 0x2A;
+        buffer[5] = 0x01;
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 6, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("ON\n");
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
+        // Print the received data in hexadecimal format
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
+    else{
+        printf("WRONG SIGNAL\n");
+    }
+}
+
 int main(int argc, char **argv)
 {
 
@@ -66,12 +116,13 @@ int main(int argc, char **argv)
     rclcpp::init(argc, argv);
 
     // Create a ROS2 node with a unique name
-    auto node = rclcpp::Node::make_shared("cmd_vel_subscriber_node");
+    auto node = rclcpp::Node::make_shared("subscriber_set_node");
 
     // Create a subscriber object for the "cmd_vel" topic
     auto subscriber = node->create_subscription<geometry_msgs::msg::Twist>(
         "cmd_vel", 10, cmdVelCallback);
-
+    auto Servoenable_sub = node->create_subscription<ros2driver::msg::Servoenable42>(
+        "ServoEnable", 1, ServoEnable_cb);
     // Spin the node to start processing incoming messages
     rclcpp::spin(node);
 
