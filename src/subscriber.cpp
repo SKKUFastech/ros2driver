@@ -2,6 +2,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include <ros2driver/msg/servoenable42.hpp>
+#include <ros2driver/msg/movestop49.hpp>
 //
 #include <stdlib.h>
 #include <string.h>
@@ -82,7 +83,35 @@ void ServoEnable_cb(const ros2driver::msg::Servoenable42 &msg)
         // Receive message from server
         int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
         buffer[len] = '\0';
-        // Print the received data in hexadecimal format
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }  
+        printf("\n");  
+    }
+    else{
+        printf("WRONG SIGNAL\n");
+    }
+}
+
+void MoveStop_cb(const ros2driver::msg::Movestop49 &msg)
+{
+    int movestop = msg.movestop;
+    RCLCPP_INFO(rclcpp::get_logger("MoveStop_sub"), "Movestop: %d", movestop);
+    char buffer[258];
+
+    if (movestop == 0){
+        buffer[0] = 0xAA;
+        buffer[1] = 0x03;
+        buffer[2] = 0x49;
+        buffer[3] = 0x00;
+        buffer[4] = 0x31;
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 5, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("MOVESTOP\n");
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
         printf("Server: ");
         for (ssize_t i = 0; i < len; i++) {
             printf("%02x ", (unsigned char)buffer[i]);
@@ -123,6 +152,8 @@ int main(int argc, char **argv)
         "cmd_vel", 10, cmdVelCallback);
     auto Servoenable_sub = node->create_subscription<ros2driver::msg::Servoenable42>(
         "ServoEnable", 1, ServoEnable_cb);
+    auto MoveStop_sub = node->create_subscription<ros2driver::msg::Movestop49>(
+        "MoveStop", 1, MoveStop_cb);
     // Spin the node to start processing incoming messages
     rclcpp::spin(node);
 
