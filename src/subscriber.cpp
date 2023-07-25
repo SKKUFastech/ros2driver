@@ -3,6 +3,7 @@
 #include <geometry_msgs/msg/twist.hpp>
 #include <ros2driver/msg/servoenable42.hpp>
 #include <ros2driver/msg/movestop49.hpp>
+#include <ros2driver/msg/emergencystop50.hpp>
 //
 #include <stdlib.h>
 #include <string.h>
@@ -123,6 +124,35 @@ void MoveStop_cb(const ros2driver::msg::Movestop49 &msg)
     }
 }
 
+void EmergencyStop_cb(const ros2driver::msg::Emergencystop50 &msg)
+{
+    int emgstop = msg.emgstop;
+    RCLCPP_INFO(rclcpp::get_logger("EmergencyStop_sub"), "Emergencystop: %d", emgstop);
+    char buffer[258];
+
+    if (emgstop == 0){
+        buffer[0] = 0xAA;
+        buffer[1] = 0x03;
+        buffer[2] = 0x50;
+        buffer[3] = 0x00;
+        buffer[4] = 0x32;
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 5, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("EMERGENCYSTOP\n");
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
+    else{
+        printf("WRONG SIGNAL\n");
+    }
+}
+
 int main(int argc, char **argv)
 {
 
@@ -154,6 +184,8 @@ int main(int argc, char **argv)
         "ServoEnable", 1, ServoEnable_cb);
     auto MoveStop_sub = node->create_subscription<ros2driver::msg::Movestop49>(
         "MoveStop", 1, MoveStop_cb);
+    auto EmergencyStop_sub = node->create_subscription<ros2driver::msg::Emergencystop50>(
+        "EmergencyStop", 1, EmergencyStop_cb);
     // Spin the node to start processing incoming messages
     rclcpp::spin(node);
 
