@@ -8,6 +8,7 @@
       "includePath": [
         "/home/ezi/tutorial_ws/install/tutorial_interfaces/include/**",
         "/opt/ros/humble/include/**",
+        "/home/ezi/ros2_ws/**",
         "/home/ezi/ros2_ws/src/cmd_sub/include/**",
         "/home/ezi/ros2_ws/src/ros2driver/include/**",
         "/home/ezi/ros2_ws/src/udpcmd/include/**",

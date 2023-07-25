@@ -34,7 +34,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Servoenable42.msg"
   "msg/Movestop49.msg"
   "msg/Emergencystop50.msg"
-)
+  "msg/Movesingleaxisabspos52.msg"
+  )
 
 ##########################################################################
 

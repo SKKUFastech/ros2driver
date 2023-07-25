@@ -4,9 +4,11 @@
 #include <ros2driver/msg/servoenable42.hpp>
 #include <ros2driver/msg/movestop49.hpp>
 #include <ros2driver/msg/emergencystop50.hpp>
+#include <ros2driver/msg/movesingleaxisabspos52.hpp>
 //
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h> // For uint64_t
 // dependencies for udp
 #include <unistd.h>
 #include <arpa/inet.h>
@@ -19,6 +21,13 @@
 int udpClientSocket;
 struct sockaddr_in serverAddr;
 
+// Function of decimal to hexadecimal
+void decimalToHex(int decimalValue, unsigned char* hexArray) {
+    hexArray[0] = (decimalValue >> 24) & 0xFF;
+    hexArray[1] = (decimalValue >> 16) & 0xFF;
+    hexArray[2] = (decimalValue >> 8) & 0xFF;
+    hexArray[3] = decimalValue & 0xFF;
+}
 // Subscriber callback function
 void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
 {
@@ -153,9 +162,66 @@ void EmergencyStop_cb(const ros2driver::msg::Emergencystop50 &msg)
     }
 }
 
+void MoveSingleAxisAbsPos_cb(const ros2driver::msg::Movesingleaxisabspos52 &msg)
+{
+    int position = msg.position;
+    int speed = msg.speed;
+    unsigned char positionBuffer[4];
+    unsigned char speedBuffer[4];
+    int flag = 0;
+    RCLCPP_INFO(rclcpp::get_logger("MoveSingleAxisAbsPos_sub"), "Postion, Speed: %d, %d",position, speed);
+    char buffer[258];
+
+    if (position >= -134217728 && position <= 134217727){
+        // Convert power to hex and store it in the buffer
+        decimalToHex(position, positionBuffer);
+        flag = 1;
+    }
+    if (speed >= 0 && speed <= 2500000){
+        // Convert power to hex and store it in the buffer
+        decimalToHex(speed, speedBuffer);
+        flag = 1;
+    }
+
+    if(flag ==1){
+        buffer[0] = 0xAA;
+        buffer[1] = 0x0B;
+        buffer[2] = 0x52;
+        buffer[3] = 0x00;
+        buffer[4] = 0x34;
+        buffer[5] = positionBuffer[3];
+        buffer[6] = positionBuffer[2];
+        buffer[7] = positionBuffer[1];
+        buffer[8] = positionBuffer[0];
+        buffer[9] = speedBuffer[3];
+        buffer[10] = speedBuffer[2];
+        buffer[11] = speedBuffer[1];
+        buffer[12] = speedBuffer[0];
+
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 13, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("MOVING\n");
+
+        for(int j=0; j<13; j++){
+            printf("%02x ", (unsigned char)buffer[j]);
+        }
+        printf("\n");
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
+    else{
+        printf("INVALID POSITION OR SPEED");
+    }
+}
+
 int main(int argc, char **argv)
 {
-
     udpClientSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpClientSocket < 0)
     {
@@ -186,6 +252,8 @@ int main(int argc, char **argv)
         "MoveStop", 1, MoveStop_cb);
     auto EmergencyStop_sub = node->create_subscription<ros2driver::msg::Emergencystop50>(
         "EmergencyStop", 1, EmergencyStop_cb);
+    auto MoveSingleAxisAbsPos_sub = node->create_subscription<ros2driver::msg::Movesingleaxisabspos52>(
+        "MoveSingleAxisAbsPos", 1, MoveSingleAxisAbsPos_cb);
     // Spin the node to start processing incoming messages
     rclcpp::spin(node);
 
