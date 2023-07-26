@@ -20,12 +20,16 @@ ament_target_dependencies(ros_to_driver rclcpp geometry_msgs)
 
 # Add the ServoEnable node executable
 add_executable(subscriber_set_node src/subscriber.cpp)
-ament_target_dependencies(subscriber_set_node rclcpp geometry_msgs ros2driver)    # CHANGE
+ament_target_dependencies(subscriber_set_node rclcpp ros2driver)    # CHANGE
+
+add_executable(subscriber_class_node src/subscriber_class.cpp)
+ament_target_dependencies(subscriber_class_node rclcpp ros2driver)  
 
 # Install the executable to the "lib/<package_name>" directory
 install(TARGETS
   ros_to_driver
   subscriber_set_node
+  subscriber_class_node
   DESTINATION lib/${PROJECT_NAME})
 
 find_package(rosidl_default_generators REQUIRED)
@@ -36,7 +40,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Emergencystop50.msg"
   "msg/Movesingleaxisabspos52.msg"
   "msg/Movesingleaxisincpos53.msg"
+  "msg/Movetolimit54.msg"
   "msg/Movevelocity55.msg"
+  "msg/Positionabsoverride56.msg"
   "msg/Movepause88.msg"
   )
 

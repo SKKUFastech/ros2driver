@@ -1,12 +1,13 @@
 // Include ROS2 C++ dependencies
 #include <rclcpp/rclcpp.hpp>
-#include <geometry_msgs/msg/twist.hpp>
 #include <ros2driver/msg/servoenable42.hpp>
 #include <ros2driver/msg/movestop49.hpp>
 #include <ros2driver/msg/emergencystop50.hpp>
 #include <ros2driver/msg/movesingleaxisabspos52.hpp>
 #include <ros2driver/msg/movesingleaxisincpos53.hpp>
+#include <ros2driver/msg/movetolimit54.hpp>
 #include <ros2driver/msg/movevelocity55.hpp>
+#include <ros2driver/msg/positionabsoverride56.hpp>
 #include <ros2driver/msg/movepause88.hpp>
 //
 #include <stdlib.h>
@@ -45,32 +46,6 @@ void decimalToHex(int decimalValue, unsigned char* hexArray, int len) {
 }
 
 // Subscriber callback function
-void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-{
-    // This function will be called whenever a new message is received on the "cmd_vel" topic
-    // Example: Sending linear and angular velocity over UDP to the server
-    float linear_vel = msg->linear.x;
-    float angular_vel = msg->angular.z;
-
-    printf("lv: %lf, av: %lf\n",linear_vel,angular_vel);
-    // Convert float values to char buffer before sending
-    char buffer[258];
-    // snprintf(buffer, sizeof(buffer), "Linear Velocity: %f, Angular Velocity: %f", linear_vel, angular_vel);
-    buffer[0] = 0xAA;
-    buffer[1] = 0x04;
-    buffer[2] = 0x38;
-    buffer[3] = 0x00;
-    buffer[4] = 0x2A;
-    buffer[5] = 0x00;
-    // Send the data over the UDP socket
-    sendto(udpClientSocket, buffer, 6, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-
-    // Receive message from server
-    int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
-    buffer[len] = '\0';
-    printf("Server: %s\n", buffer);
-}
-
 void ServoEnable_cb(const ros2driver::msg::Servoenable42 &msg)
 {
     int power = msg.power;
@@ -294,6 +269,57 @@ void MoveSingleAxisIncPos_cb(const ros2driver::msg::Movesingleaxisincpos53 &msg)
     }
 }
 
+void MovetoLimit_cb(const ros2driver::msg::Movetolimit54 &msg)
+{
+    int speed = msg.speed;
+    int limit=msg.limit;
+    
+    unsigned char speedBuffer[4];
+    
+    
+    RCLCPP_INFO(rclcpp::get_logger("MovetoLimit_sub"), "speed: %d, limit: %d", speed, limit);
+    char buffer[258];
+
+    if (speed>0 && speed<35000){
+        if(limit==0 || limit==1){
+            decimalToHex(speed, speedBuffer, 4);
+            
+            buffer[0] = 0xAA;
+            buffer[1] = 0x08;
+            buffer[2] = 0x54;
+            buffer[3] = 0x00;
+            buffer[4] = 0x36;
+            buffer[5] = speedBuffer[3];
+            buffer[6] = speedBuffer[2];
+            buffer[7] = speedBuffer[1];
+            buffer[8] = speedBuffer[0];
+            if(limit==0){
+                buffer[9]=0x00;
+            }
+            else{
+                buffer[9]=0x01;
+            }
+            // Send the data over the UDP socket
+            sendto(udpClientSocket, buffer, 10, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+            printf("MOVELIMIT\n");
+            // Receive message from server
+            int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+            buffer[len] = '\0';
+            printf("Server: ");
+            for (ssize_t i = 0; i < len; i++) {
+                printf("%02x ", (unsigned char)buffer[i]);
+            }
+            printf("\n");
+        }
+        else{
+            printf("WRONG SIGNAL\n");
+        }
+    }
+    else{
+        printf("WRONG SIGNAL\n");
+    }
+}
+
 void MoveVelocity_cb(const ros2driver::msg::Movevelocity55 &msg)
 {
     int speed = msg.speed;
@@ -342,6 +368,47 @@ void MoveVelocity_cb(const ros2driver::msg::Movevelocity55 &msg)
     }
     else{
         printf("WRONG SIGNAL\n");
+    }
+}
+
+void PositionAbsOverride_cb(const ros2driver::msg::Positionabsoverride56 &msg)
+{
+    int target_abs_pos = msg.target_abs_pos;
+    
+    unsigned char positionBuffer[4];
+    
+    RCLCPP_INFO(rclcpp::get_logger("PositionAbsOverride_sub"), "target_abs_pos: %d",target_abs_pos);
+    char buffer[258];
+
+    if (target_abs_pos >= -134217728 && target_abs_pos <= 134217727){
+        // Convert power to hex and store it in the buffer
+        decimalToHex(target_abs_pos, positionBuffer, 4);
+
+        buffer[0] = 0xAA;
+        buffer[1] = 0x07;
+        buffer[2] = 0x53;
+        buffer[3] = 0x56;
+        buffer[4] = 0x38;
+        buffer[5] = positionBuffer[3];
+        buffer[6] = positionBuffer[2];
+        buffer[7] = positionBuffer[1];
+        buffer[8] = positionBuffer[0];
+
+        // Send the data over the UDP socket
+        sendto(udpClientSocket, buffer, 9, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+        printf("Change abs pos target\n");
+
+        // Receive message from server
+        int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+        buffer[len] = '\0';
+        printf("Server: ");
+        for (ssize_t i = 0; i < len; i++) {
+            printf("%02x ", (unsigned char)buffer[i]);
+        }
+        printf("\n");
+    }
+    else{
+        printf("INVALID POSITION");
     }
 }
 
@@ -399,7 +466,7 @@ int main(int argc, char **argv)
     udpClientSocket = socket(AF_INET, SOCK_DGRAM, 0);
     if (udpClientSocket < 0)
     {
-        RCLCPP_ERROR(rclcpp::get_logger("cmd_vel_subscriber"), "Error opening UDP client socket");
+        RCLCPP_ERROR(rclcpp::get_logger("main"), "Error opening UDP client socket");
         return -1;
     }
 
@@ -417,9 +484,6 @@ int main(int argc, char **argv)
     // Create a ROS2 node with a unique name
     auto node = rclcpp::Node::make_shared("subscriber_set_node");
 
-    // Create a subscriber object for the "cmd_vel" topic
-    auto subscriber = node->create_subscription<geometry_msgs::msg::Twist>(
-        "cmd_vel", 10, cmdVelCallback);
     auto Servoenable_sub = node->create_subscription<ros2driver::msg::Servoenable42>(
         "ServoEnable", 1, ServoEnable_cb);
     auto MoveStop_sub = node->create_subscription<ros2driver::msg::Movestop49>(
@@ -430,8 +494,12 @@ int main(int argc, char **argv)
         "MoveSingleAxisAbsPos", 1, MoveSingleAxisAbsPos_cb);
     auto MoveSingleAxisIncPos_sub = node->create_subscription<ros2driver::msg::Movesingleaxisincpos53>(
         "MoveSingleAxisIncPos", 1, MoveSingleAxisIncPos_cb);
+    auto MovetoLimit_sub = node->create_subscription<ros2driver::msg::Movetolimit54>(
+        "MovetoLimit", 1, MovetoLimit_cb);
     auto MoveVelocity_sub = node->create_subscription<ros2driver::msg::Movevelocity55>(
         "MoveVelocity", 1, MoveVelocity_cb);
+    auto PositionAbsOverride_sub = node->create_subscription<ros2driver::msg::Positionabsoverride56>(
+        "PositionAbsOverride", 1, PositionAbsOverride_cb);
     auto MovePause_sub = node->create_subscription<ros2driver::msg::Movepause88>(
         "MovePause", 1, MovePause_cb);
 
