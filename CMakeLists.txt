@@ -35,6 +35,9 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Movestop49.msg"
   "msg/Emergencystop50.msg"
   "msg/Movesingleaxisabspos52.msg"
+  "msg/Movesingleaxisincpos53.msg"
+  "msg/Movevelocity55.msg"
+  "msg/Movepause88.msg"
   )
 
 ##########################################################################
