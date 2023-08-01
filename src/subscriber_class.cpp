@@ -13,14 +13,15 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <cstring>
 
-#define SERVER_IP "192.168.0.2"  //192.168.0.171
+// #define SERVER_IP "192.168.0.2"  //192.168.0.171
 #define BUFFER_SIZE 1024
 #define PORT 3001
 
 class UDPServoController : public rclcpp::Node {
 public:
-    UDPServoController() : Node("subscriber_class_node") {
+    UDPServoController(const std::string& server_ip) : Node("subscriber_class_node"), SERVER_IP(server_ip) {
         // Create the UDP socket
         udpClientSocket = socket(AF_INET, SOCK_DGRAM, 0);
         if (udpClientSocket < 0) {
@@ -32,7 +33,7 @@ public:
         memset(&serverAddr, 0, sizeof(serverAddr));
         serverAddr.sin_family = AF_INET;
         serverAddr.sin_port = htons(PORT);
-        if (inet_pton(AF_INET, SERVER_IP, &serverAddr.sin_addr) <= 0) {
+        if (inet_pton(AF_INET, SERVER_IP.c_str(), &serverAddr.sin_addr) <= 0) {
             perror("inet_pton failed");
             exit(EXIT_FAILURE);
         }
@@ -67,6 +68,7 @@ public:
 private:
     int udpClientSocket;
     struct sockaddr_in serverAddr;
+    const std::string SERVER_IP;
 
     rclcpp::Subscription<ros2driver::msg::Servoenable42>::SharedPtr ServoEnable_sub;
     rclcpp::Subscription<ros2driver::msg::Movestop49>::SharedPtr MoveStop_sub;
@@ -514,8 +516,13 @@ int main(int argc, char **argv) {
     // Initialize ROS2 node
     rclcpp::init(argc, argv);
 
+    if (argc < 2) {
+        RCLCPP_ERROR(rclcpp::get_logger("main"), "Usage: %s <SERVER_IP>", argv[0]);
+        return 1;
+    }
     // Create and run the UDPServoController node
-    auto node = std::make_shared<UDPServoController>();
+    auto node = std::make_shared<UDPServoController>(std::string(argv[1]));
+        
     rclcpp::spin(node);
 
     // Close the UDP socket
