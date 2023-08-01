@@ -14,7 +14,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
-#define SERVER_IP "192.168.0.2"
+#define SERVER_IP "192.168.0.2"  //192.168.0.171
 #define BUFFER_SIZE 1024
 #define PORT 3001
 
@@ -78,6 +78,7 @@ private:
     rclcpp::Subscription<ros2driver::msg::Positionabsoverride56>::SharedPtr PositionAbsOverride_sub;
     rclcpp::Subscription<ros2driver::msg::Movepause88>::SharedPtr MovePause_sub;
 
+    //decimal(10진수) -> hexadecimal(16진수)
     void decimalToHex(int decimalValue, unsigned char* hexArray, int len) {
     int i=0;
     for(i=0;i<len;i++){

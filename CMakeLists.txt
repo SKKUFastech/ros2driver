@@ -8,7 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(ros2driver REQUIRED)
+# find_package(ros2driver REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(std_msgs REQUIRED)
 
@@ -20,10 +20,10 @@ ament_target_dependencies(ros_to_driver rclcpp geometry_msgs)
 
 # Add the ServoEnable node executable
 add_executable(subscriber_set_node src/subscriber.cpp)
-ament_target_dependencies(subscriber_set_node rclcpp ros2driver)    # CHANGE
+ament_target_dependencies(subscriber_set_node rclcpp)    # CHANGE
 
 add_executable(subscriber_class_node src/subscriber_class.cpp)
-ament_target_dependencies(subscriber_class_node rclcpp ros2driver)  
+ament_target_dependencies(subscriber_class_node rclcpp)  
 
 # Install the executable to the "lib/<package_name>" directory
 install(TARGETS
@@ -46,7 +46,12 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Movepause88.msg"
   )
 
-##########################################################################
+  rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+
+  target_link_libraries(subscriber_set_node "${cpp_typesupport_target}")
+  target_link_libraries(subscriber_class_node "${cpp_typesupport_target}")
+  ##########################################################################
 
 
 if(BUILD_TESTING)
