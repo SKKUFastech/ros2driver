@@ -7,6 +7,7 @@
 #include <ros2driver/msg/movetolimit54.hpp>
 #include <ros2driver/msg/movevelocity55.hpp>
 #include <ros2driver/msg/positionabsoverride56.hpp>
+#include <ros2driver/msg/getallstatus67.hpp>
 #include <ros2driver/msg/movepause88.hpp>
 
 #include <unistd.h>
@@ -43,7 +44,7 @@ public:
         // Add other subscribers for other topics as needed
         this->MoveStop_sub = this->create_subscription<ros2driver::msg::Movestop49>(
             "MoveStop", 1, std::bind(&UDPServoController::MoveStop_cb, this, std::placeholders::_1));
-        this-> EmergencyStop_sub = this->create_subscription<ros2driver::msg::Emergencystop50>(
+        this->EmergencyStop_sub = this->create_subscription<ros2driver::msg::Emergencystop50>(
             "EmergencyStop", 1, std::bind(&UDPServoController::EmergencyStop_cb, this, std::placeholders::_1));
         this->MoveSingleAxisAbsPos_sub = this->create_subscription<ros2driver::msg::Movesingleaxisabspos52>(
             "MoveSingleAxisAbsPos", 1, std::bind(&UDPServoController::MoveSingleAxisAbsPos_cb, this, std::placeholders::_1));
@@ -55,6 +56,8 @@ public:
             "MoveVelocity", 1, std::bind(&UDPServoController::MoveVelocity_cb, this, std::placeholders::_1));
         this->PositionAbsOverride_sub = this->create_subscription<ros2driver::msg::Positionabsoverride56>(
             "PositionAbsOverride", 1, std::bind(&UDPServoController::PositionAbsOverride_cb, this, std::placeholders::_1));
+        this->GetAllStatus_sub = this->create_subscription<ros2driver::msg::Getallstatus67>(
+            "GetAllStatus", 1, std::bind(&UDPServoController::GetAllStatus_cb, this, std::placeholders::_1));
         this->MovePause_sub = this->create_subscription<ros2driver::msg::Movepause88>(
             "MovePause", 1, std::bind(&UDPServoController::MovePause_cb, this, std::placeholders::_1));
         
@@ -78,6 +81,7 @@ private:
     rclcpp::Subscription<ros2driver::msg::Movetolimit54>::SharedPtr MoveToLimit_sub;
     rclcpp::Subscription<ros2driver::msg::Movevelocity55>::SharedPtr MoveVelocity_sub;
     rclcpp::Subscription<ros2driver::msg::Positionabsoverride56>::SharedPtr PositionAbsOverride_sub;
+    rclcpp::Subscription<ros2driver::msg::Getallstatus67>::SharedPtr GetAllStatus_sub;
     rclcpp::Subscription<ros2driver::msg::Movepause88>::SharedPtr MovePause_sub;
 
     //decimal(10진수) -> hexadecimal(16진수)
@@ -458,6 +462,41 @@ private:
         }
         else{
             printf("INVALID POSITION");
+        }
+    }
+
+    void GetAllStatus_cb(const ros2driver::msg::Getallstatus67::SharedPtr msg)
+    {
+        int status = msg->status;
+          
+        RCLCPP_INFO(rclcpp::get_logger("GetAllStatus_Sub"), "status: %d",status);
+        char buffer[258];
+
+        if (status ==1){
+            // Convert power to hex and store it in the buffer
+
+            buffer[0] = 0xAA;
+            buffer[1] = 0x03;
+            buffer[2] = 0x67;
+            buffer[3] = 0x00;
+            buffer[4] = 0x43;
+
+
+            // Send the data over the UDP socket
+            sendto(udpClientSocket, buffer, 5, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+            printf("Motor Status\n");
+
+            // Receive message from server
+            int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+            buffer[len] = '\0';
+            printf("Server: ");
+            for (ssize_t i = 0; i < len; i++) {
+                printf("%02x ", (unsigned char)buffer[i]);
+            }
+            printf("\n");
+        }
+        else{
+            printf("INVALID INPUT");
         }
     }
 

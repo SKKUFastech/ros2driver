@@ -43,6 +43,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Movetolimit54.msg"
   "msg/Movevelocity55.msg"
   "msg/Positionabsoverride56.msg"
+  "msg/Getallstatus67.msg"
   "msg/Movepause88.msg"
   )
 
