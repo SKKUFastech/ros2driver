@@ -15,6 +15,9 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <cstring>
+#include <ctime>
+#include <iostream>
+#include <fstream>
 
 // #define SERVER_IP "192.168.0.2"  //192.168.0.171
 #define BUFFER_SIZE 1024
@@ -516,49 +519,126 @@ private:
     void GetAllStatus_cb(const ros2driver::msg::Getallstatus67::SharedPtr msg)
     {
         int status = msg->status;
+        uint32_t m_status[8];
+        // const char *filename = "example.csv";
 
         RCLCPP_INFO(rclcpp::get_logger("GetAllStatus_Sub"), "status: %d", status);
         char buffer[258];
-        uint32_t m_status[8];
 
         if (status == 1)
         {
-            // Send command to driver
+            // create file
+            // std::ofstream fileStream(filename, std::ios::out | std::ios::trunc);
+            FILE *csvFileCommand = fopen("hi.csv", "w");
+            // FILE *csvFileActual = fopen("outputactual.csv", "w"); || csvFileActual == NULL
+            if (csvFileCommand == NULL )
+            {
+                perror("Error opening CSV file");
+                return;
+            }
+            // 동작 명령(movesingleaxisincpos53)+time
+            // buffer[0] = 0xAA;
+            // buffer[1] = 0x0B;
+            // buffer[2] = 0x53;
+            // buffer[3] = 0x00;
+            // buffer[4] = 0x35;
+            // buffer[5] = 0xA0;
+            // buffer[6] = 0x86;
+            // buffer[7] = 0x01;
+            // buffer[8] = 0x00;
+            // buffer[9] = 0x10;
+            // buffer[10] = 0x27;
+            // buffer[11] = 0x00;
+            // buffer[12] = 0x00;
 
+            buffer[5] = 0x10;
+            buffer[6] = 0x27;
+            buffer[7] = 0x00;
+            buffer[8] = 0x00;
+            buffer[9] = 0x00;
             buffer[0] = 0xAA;
-            buffer[1] = 0x03;
-            buffer[2] = 0x67;
+            buffer[1] = 0x08;
+            buffer[2] = 0x55;
             buffer[3] = 0x00;
-            buffer[4] = 0x43;
+            buffer[4] = 0x37;
 
-            // Send the data over the UDP socket
-            sendto(udpClientSocket, buffer, 5, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
-            printf("Motor Status\n");
+            // // Send the data over the UDP socket
+            // sendto(udpClientSocket, buffer, 10, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+            // printf("MOVING\n");
 
-            // Receive message from server
-            int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
-            buffer[len] = '\0';
-            printf("Server: ");
-            for (ssize_t i = 0; i < len; i++)
+            // for (int j = 0; j < 10; j++)
+            // {
+            //     printf("%02x ", (unsigned char)buffer[j]);
+            // }
+            // printf("\n");
+            // // Receive message from server
+            // int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+            // buffer[len] = '\0';
+            // printf("Server: ");
+            // for (ssize_t i = 0; i < len; i++)
+            // {
+            //     printf("%02x ", (unsigned char)buffer[i]);
+            // }
+            // printf("\n");
+
+            // timer
+            struct timespec start_time, end_time;
+            clock_gettime(CLOCK_MONOTONIC, &start_time);
+            int k = 0;
+            // spin
+            while (1)
             {
-                printf("%02x ", (unsigned char)buffer[i]);
-            }
-            printf("\n");
+                buffer[0] = 0xAA;
+                buffer[1] = 0x03;
+                buffer[2] = 0x67;
+                buffer[3] = 0x00;
+                buffer[4] = 0x43;
 
-            for (int j = 6; j < 35; j += 4)
-            {
-                m_status[(j - 6) / 4] = (buffer[j] | (buffer[j + 1] << 8) | (buffer[j + 2] << 16) | (buffer[j + 3] << 24));
-            }
+                // Send the data over the UDP socket
+                sendto(udpClientSocket, buffer, 5, 0, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
+                printf("Motor Status\n");
 
-            // print status
-            printf("Input = 0x%08X\n", m_status[0]);
-            printf("Output = 0x%08X\n", m_status[1]);
-            printf("AxisStatus = 0x%08X\n", m_status[2]);
-            printf("CmdPos = %d\n", m_status[3]);
-            printf("ActPos = %d\n", m_status[4]);
-            printf("PosErr = %d\n", m_status[5]);
-            printf("ActVel = %d\n", m_status[6]);
-            printf("PT Item = %d\n", m_status[7]);
+                // Receive message from server
+                int len = recvfrom(udpClientSocket, (char *)buffer, BUFFER_SIZE, 0, NULL, NULL);
+                buffer[len] = '\0';
+                printf("Server: ");
+                for (ssize_t i = 0; i < len; i++)
+                {
+                    printf("%02x ", (unsigned char)buffer[i]);
+                }
+                printf("\n");
+
+                for (int j = 6; j < 35; j += 4)
+                {
+                    m_status[(j - 6) / 4] = (buffer[j] | (buffer[j + 1] << 8) | (buffer[j + 2] << 16) | (buffer[j + 3] << 24));
+                }
+
+                clock_gettime(CLOCK_MONOTONIC, &end_time);
+
+                double elapsed_time = ((end_time.tv_sec - start_time.tv_sec) + (end_time.tv_nsec - start_time.tv_nsec) / 1e9);
+                // write everything to file
+                // fileStream << elapsed_time << "," << m_status[3] << "," << m_status[4] << "," << m_status[5] << "," << m_status[6] << std::endl;
+                fprintf(csvFileCommand, "%lf,", elapsed_time);
+                fprintf(csvFileCommand, "%d,", m_status[3]);
+                fprintf(csvFileCommand, "%d,", m_status[4]);
+                fprintf(csvFileCommand, "%d\n", m_status[5]);
+                // RCLCPP_INFO(node->get_logger(), "Elapsed Time: %.3f ms", elapsed_time);
+                //  RCLCPP_INFO(rclcpp::get_logger("GetAllStatus_Sub"), "status: %d",status);
+
+                usleep(1000000);
+                // k++;
+                // if (k == 8){
+                //     fclose(csvFileCommand);
+                //     fclose(csvFileActual);
+                //     break;}
+                if (m_status[6] == 0)
+                {
+                    fclose(csvFileCommand);
+                    // fclose(csvFileActual);
+                    // fileStream.close();
+                    break;
+                }
+            }
         }
         else
         {
